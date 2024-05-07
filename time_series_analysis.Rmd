@@ -1,0 +1,189 @@
+---
+title: "STA457_final_project_new"
+author: "Jin Qin"
+fontsize: 11pt
+date: "13/04/2022"
+header-includes:
+ - \usepackage{setspace}\doublespacing
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+tables: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r,include=FALSE}
+library(astsa)
+library(fpp2)
+library(fpp3)
+library(fma)
+length(unemp)
+```
+
+**Abstract**: The purpose of this project was to analyze the U.S unemployment rate from 1948 to 2016 and forecast the future values of unemployment. We employed the differencing method to detrend the original data so that it becomes stationary. After this step, we fit two SARIMA models based on the dependence orders that are determined by observing the ACF and PACF plots of differenced data. Then, we do the model selection by testing significance of parameters, diagnostics, and AIC, AICc, BIC criteria until the final model is obtained. Ultimately, the final model showed that the U.S unemployment rate at any certain time t is largely affected by the values from the past one month and past 13 months. We find that the unemployment remains the decreasing trend for the next ten months after Nov, 2016 and conclude that our final model is good fit.  Keywords: Unemployment, Spectral analysis, time series, model selection, differencing, SARIMA model. 
+
+**Introduction**: In this project, we aim to consider the analysis of monthly unemployment rate in the U.S. from Jan, 1948 to Nov, 2016, with the number of observations is 827. The unemployment rate represents the proportion of unemployed people in the whole labor market and it is often considered as a key indicator of the performance of the national's labor market. 
+Since people who are unemployed is likely to present a reduced purchasing power, it may cause the economy to be weak(1). Moreover, people who are employed may feel scared about losing jobs. So high unemployment rate may also have an adverse effect on the labor morale(Picardo, 2022). Then, we selected and collected the data set named 'UnempRate' from R's library named ‘astsa’. Since the World is now experiencing the pandemic of Covid 19, unemployment might be adversely influenced by the disease and affects the economic policies. Therefore, we may obtain some useful and valuable information about the trend of unemployment from the historical data and make some forecasting about the unemployment rate based on the time series. 
+
+**Statistical Methods**: This analysis will be using the regular difference and seasonal difference to convert non-stationary process into stationary process. And it uses SARIMA modeling to the time series by proposing several models based on the dependence orders of the SARIMA model. Then, we will perform all necessary diagnostics test to all of them and use AIC, AICc, and BIC criteria to select the most appropriate model. After this step, the final model will be used for the analysis of forecasting the future trends of the unemployment rate in U.S. Ultimately, a spectral analysis will be performed to discover the underlying periodicity.
+  
+```{r, fig.cap="Plot of unemployment rate in the U.S. from Jan, 1948 to Nov, 2016", echo=FALSE,fig.dim=c(6,3)}
+plot(UnempRate,xlab="Year")
+```
+
+From Figure 1, we can find that unemployment rate fluctuates all the time. During the recession period of 1980s and the financial crisis period of 2007 to 2010, unemployment rate rise up to 10%. During the economic growth period, unemployment tends to be lower. While testing the properties of a stationary process, it is observed that the mean of the time series is not zero and the variance is not constant. Moreover, it presents an slow increasing trend and it tends to have seasonality since it has a cyclic pattern shown by the rise and fall of unemployment rates corresponding to recession and expansion. Thus, the process is not currently stationary. 
+
+```{r, fig.cap= "ACF and PACF Plot of UnempRate", echo=FALSE, fig.dim=c(6,2.5)}
+# Plot the acf and pacf of UnempRate
+acf_pacf_plot = acf2(UnempRate)
+```
+
+\newpage
+By Figure 2, we observed that the sample ACF does not decay to zero quickly with the increase of h. Since it shows a slow decay to zero, it is necessary to apply differencing to the time series in order to convert it into a stationary process. We will make the data stationary by differencing and store the data into _diff_unempRate_: 
+
+```{r, fig.cap="ACF and PACF Plot of first differenced UnempRate", fig.dim=c(6,3)}
+diff_unempRate = diff(UnempRate)
+acf_pacf_plot2 = acf2(diff_unempRate)
+```
+
+From Figure 3, it is observed that there are four spikes at the 1s, 2s, 3s and 4s after first differencing. It also implies that a seasonal differencing is needed to convert the process into stationary. So we are trying to do a seasonal difference to the time series with lag 12 and store the data into _diff2_unempRate_:
+
+```{r, fig.cap="Monthly plot of twice differenced unemployment rate in U.S over time", fig.dim=c(6,2.5)}
+# monthplot of diff_unempRate
+diff2_unempRate = diff(diff_unempRate, 12)
+monthplot(diff2_unempRate)
+```
+
+As shown in Figure 4, it is obvious that seasonal component of U.S unemployment rates do not exist for each month and the data has zero mean now after the seasonal difference, which implies that the twice differenced data appears to be stationary.  
+
+```{r, fig.cap="ACF and PACF Plot of second differenced UnempRate", fig.dim= c(6,3)}
+acf_pacf_plot3 = acf2(diff2_unempRate)
+```
+
+  As shown in Figure 5, the sample ACF decays to zero very quickly now as h increases. Thus, we can conclude that the time series is stationary as well and we can fit the model now. Since we have done a non-seasonal differencing once and a seasonal differencing once, we know that d = 1, D = 1. Non-seasonal Component: Inspecting the sample ACF and PACF above, the ACF cuts off after lag 5, whereas the PACF is tailing off. So we have q = 5, p = 0. The PACF cuts off after lag 3, and the ACF is tailing off, so we have p = 3, q = 0. Seasonal Component: ACF cuts off after a lag 1s, whereas PACF tails off at lags 1s, 2s, 3s..., which implies Q = 1, P = 0. And PACF cuts off after a lag 3s, whereas ACF tails off at lags after 3s, which implies P = 3, Q = 0. Therefore, we propose 3 possible SARIMA models below: $model\ 1:SARIMA(0,1,5) \times(0,1,1)_{12}$, $model\ 2:SARIMA(3,1,0) \times(0,1,1)_{12}$
+
+**Results**: After building 2 ARIMA models, we have to estimate the parameters for the proposed two models and test the significance of the parameter estimates for each model then do the diagnostic test for them and select the most appropriate model based on AIC, AICc, BIC, if necessary. 
+
+```{r}
+# Fit a SARIMA(0,1,5,0,1,1) model
+model1 <- sarima(UnempRate,0,1,5,0,1,1,12,details = FALSE)
+knitr::kable(model1$ttable, caption = "Summary of model 1")
+```
+
+By Table 1, we observed that the p-values for all the parameters are below the significance level(0.05), it implies that all of them are significant. 
+
+```{r,results='hide', fig.dim=c(6,2.5), fig.cap='Diagnostics plots of model 1'}
+model1 <- sarima(UnempRate,0,1,5,0,1,1,12)
+```
+
+Inspection of Figure 6, we found that: The standard residuals show no obvious patterns, so sequence is i.i.d. The standardized residuals plot shows mean zero since the lines oscillate around zero. However, the lines are oscillating with a larger distance interval between 1950 and 1980 compared to that between 1980 and 2017. It implies a non-constant variance as well. The ACF of residuals shows only 2 significant spikes, we know that there are no apparent departures from the randomness assumption of the model. In the Normal Q-Q Plot of Std Residuals, most of the points lie on the straight diagonal line except for 1-2 outliers on the tail, it implies that there are no apparent departures from the normality assumption, so it satisfies the normality assumption. Almost all of the p-values for Ljung-Box statistics are above the significance level, so we cannot reject the null hypothesis that the residuals are independent. Overall, model 1 satisfies all of the diagnostic criteria and all of its parameters are significant. Thus, model 1 is retained for comparison with model 2.
+
+```{r}
+# Fit a SARIMA(3,1,0,0,1,1) model
+model2 <- sarima(UnempRate, 3,1,0,0,1,1,12, details = FALSE)
+knitr::kable(model2$ttable, caption = "Summary of model 2")
+```
+
+From Table 2, we observed that the p-values for all the parameters are below the significance level(0.05), it implies that all of them are significant as well. 
+
+```{r, results='hide', fig.cap='Diagnostics plots of model 2', fig.dim=c(6,2.5)}
+model2 <- sarima(UnempRate,3,1,0,0,1,1,12)
+```
+
+\newpage
+Inspection of Figure 7, we found that: The standard residuals show no obvious patterns, so sequence is i.i.d. The standardized residuals plot shows mean zero since the lines oscillate around zero. Moreover, the lines are oscillating around a fixed distance interval, which implies constant variance. The ACF of residuals has zero mean and constant variance. Since there is only 2 significant spikes, we know that there are no apparent departures from the randomness assumption of the model. In the Normal Q-Q Plot of Std Residuals, since most of the points lie on the straight diagonal line except for 1-2 outliers on the tail, it implies that there are no apparent departures from the normality assumption, so it satisfies the normality assumption. Since almost all the p-values for Ljung-Box statistics are above the significance level, we cannot reject the null hypothesis that the residuals are independent. Overall, the residuals have zero mean and constant variance and they present independence. Since we cannot determine the most appropriate model from model 1 and model 2, we have to apply the model selection criteria with AIC, AICc, BIC. 
+
+```{r}
+ms_table <- matrix(c(model1$AIC, model1$AICc, model1$BIC,
+                     model2$AIC, model2$AICc, model2$BIC), ncol = 3,
+                     byrow = TRUE)
+colnames(ms_table) <- c('AIC', 'AICc', 'BIC')
+rownames(ms_table) <- c('model 1' ,'model 2')
+ms_table <- as.table(ms_table)
+knitr::kable(ms_table, caption = "Summary of AIC, AICc, BIC of model1 and model2")
+```
+
+From Table 3, we can find that AIC and AICc of model 1 are lower than that of model 2, whereas the BIC of model 2 is lower that of model 1. Although the AIC and AICc both prefer the model 1 fit, the BIC prefers the model 2. It is typical and normal that the BIC will select a model of smaller order than the AIC or AICc. Thus, no matter of which case, it is reasonable to keep the model2 because model2 is an autoregressive and seasonal moving average model and this type of model is easier to be interpreted since we can obtain information based on the past value and current noise, whereas model 1 is a moving average and seasonal moving average model that it is hard to obtain information based on the past and current noise terms since noise terms has no real meanings. Thus, model 2 is selected to be our final model. We can write the expression of model 2 as: 
+$$
+y_t = (1-B)(1-B^{12})\ x_t = (1-B^{12}-B+B^{13})\ x_t =  x_t \ -x_{t-12 }\ -x_{t-1}\ -x_{t-13}\ \ \ \ \  (*)
+$$
+$$
+So,\ (1-0.1148B-0.2023B^2-0.09B^3)\ y_t = (1-0.7674B^{12})\ w_t \ \ \ \ \ (**)
+$$
+Then, Plug (*) into (**), we get:
+
+$x_t = 1.1148x_{t-1}+0.0875x_{t-2}-0.1123x_{t-3}-0.09x_{t-4}+x_{t-12}-1.1148x_{t-13}-0.0875x_{t-14}$
+
+$+0.1123x_{t-15}+0.09x_{t-16}+w_t-0.7674w_{t-12}$
+
+where $x_t$ represents the original time series UnempRate. We can make some important interpretations of the parameters of the final model. The U.S unemployment rate at a certain time t is largely affected by the values from the past one month and past 13 months. For example, the U.S unemployment rate at time t will increase by 1.1148 units with 1 unit increase of unemployment rate from the past one month, whereas the U.S unemployment rate at time t will decrease by 1.1148 units with 1 unit increase of unemployment rate from the past thirteen months. Similarly, other parameters can be explained by this approach. 
+
+```{r,fig.cap="Forecasts of U.S unemployment rate for the future ten months", fig.dim=c(6,3)}
+# Forecasting the arima(3,1,0,0,1,1) model for the next ten months.
+prediction = sarima.for(UnempRate,10,3,1,0,0,1,1,12)
+# Obtain the 5% lower Prediction interval
+lower_bound = prediction$pred-qnorm(0.975)*prediction$se
+# Obtain the 5% upper Prediction interval
+upper_bound = prediction$pred+qnorm(0.975)*prediction$se
+# Build a data frame for the prediction intervals
+df = data.frame("Prediction"=prediction$pred,"Lower Bound for 95% PI"=lower_bound,
+            "Upper Bound for 95% PI"= upper_bound)
+```
+
+The red line in Figure 8 demonstrates the forecasted unemployment rates and the grey area is the corresponding 95% prediction interval. It is observed that our forecasts align with the true values, presenting a downward trend starts from Nov, 2016 and it also captures the seasonality at the end of the ten months. 
+
+```{r}
+knitr::kable(df, caption ='95% Prediction intervals for each of the ten forecasts')
+```
+
+Table 4 shows the 95% prediction intervals for each of the ten forecasts. 
+
+```{r,include=FALSE}
+UnempRate1 <- mvspec(UnempRate, log='no')
+```
+
+```{r}
+##We set log="no" because the periodogram is plotted on a log10 scale by default
+P2<-UnempRate1$details[order(UnempRate1$details[,3],decreasing = TRUE),]
+
+#Identify the first three dominant frequencies for salt1 series
+knitr::kable(data.frame(P2[1,],P2[2,],P2[3,]), caption = 'Presenting the first 
+three predominant periods')
+```
+
+As shown in Table 5, we know that the first three predominant periods are 36, 24 and 9 years.
+
+```{r,include=FALSE}
+#90% CIs for the dominant frequencies for salt series in part(a)
+UnempRate1.lower1 = 2*P2[1,3]/qchisq(.975,2)
+UnempRate1.upper1 = 2*P2[1,3]/qchisq(.025,2)
+UnempRate1.lower2 = 2*P2[2,3]/qchisq(.975,2)
+UnempRate1.upper2 = 2*P2[2,3]/qchisq(.025,2)
+UnempRate1.lower3 = 2*P2[3,3]/qchisq(.975,2)
+UnempRate1.upper3 = 2*P2[3,3]/qchisq(.025,2)
+```
+
+```{r}
+#Create a data frame for the CIs
+Result <- data.frame(Series=c(rep("unemp1",3)),
+Dominant.freq=c(P2[1,1],P2[2,1],P2[3,1]), 
+Spec=c(P2[1,3],P2[2,3],P2[3,3]),
+Lower_bound=c(UnempRate1.lower1,UnempRate1.lower2,UnempRate1.lower3),
+Upper_bound=c(UnempRate1.upper1,UnempRate1.upper2,UnempRate1.upper3))
+Result[1:2,3:5] = round(Result[1:2,3:5], 4)
+knitr::kable(Result, caption = 'Confidence intervals for the identified periods')
+```
+
+From the Table 6, we obtain some findings below: We cannot establish the significance of the first peak since the periodogram ordinate is 14.4829, which lies in the confidence intervals of the second and third peak. We cannot establish the significance of the second peak since the periodogram ordinate is 11.1720 which lies in the confidence interval of the first and third peak. We cannot establish the significance of the third peak since the periodogram ordinate is 9.9625, which lies in the confidence interval of the first and second peak.
+
+**Discussion**: By observing the forecasting plot, we find that the U.S unemployment rate will still keep the decreasing pattern for the future ten periods after Nov, 2016. Sometimes, low unemployment may cause higher inflation. And the government may have to implement monetary policy to reduce inflation by raising interest rate(Hankin, 2021). As for the limitation of the project, the final model might not consider some potential seasonality in the original data. Moreover, there are still two p-values for L-B statistic lying at or below the significance level for the final model, which may cause the residuals not to be independent and it may imply some other patterns of the residuals that we ignored. Last but not least, there are still several models we could analyze in order to help make better forecast. However, it is out of the scope of this analysis. This analysis can include more potential models based on the chosen dependence orders to better forecast the future values of the unemployment rate in U.S. And we could divide the data into quarterly distributed and see if there is any seasonality. 
+  
+\newpage  
+## Bibliography ## 
+Picardo, E. (2022, March 23). How the unemployment rate affects everybody. Investopedia. Retrieved April 13, 2022, from https://www.investopedia.com/articles/economics/10/unemployment-rate-get-real.asp 
+
+Hankin, A. (2021, May 19). The downside of low unemployment. Investopedia. Retrieved April 16, 2022, from https://www.investopedia.com/insights/downside-low-unemployment/ 

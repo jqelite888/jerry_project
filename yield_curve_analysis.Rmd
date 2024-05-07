@@ -1,0 +1,280 @@
+---
+title: "APM466_A1_new"
+author: "Jin Qin"
+date: "06/02/2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library("jrvFinance")
+library("readxl")
+library("tibble")
+library("stringr")
+```
+
+Q1a). Government prints more money would cause the inflation of the whole society whereas borrowing money by issuing bonds spreads the burden to everyone equally instead of triggering the inflation. 
+
+b).When Federal Reserve increases the short-term fund rates, then the short-term rates increase faster than the long-term rates then cause the slope of yield curve at long-term flatter than that at short-term. 
+
+c).Quantitative easing is a monetary policy that aims to reduce interest rates and keep it at a lower level by purchasing bonds from banks or companies and then boosting the economics, On March 15, 2020, the Fed said that they would buy at least $500 billion in Treasury bills and 200 billion in government-guaranteed mortgage-backed security in the next few months(Milstein & Wessel, 2021)
+
+Q2. I chose 11 bonds to construct further curves based on the duration. Since we need to plot 0-5 years yield, spot curves, we should ensure that the duration of the bond is at least 5 years, otherwise, we won't be able to plot the curve with missing values. For example, CAN 2.25 Mar 24 is a 5.5-year bond which is appropriate for plotting curves. Moreover, I sorted those bonds in terms of their maturity dates by ascending and consecutive orders.
+
+Q3.The principle component analysis represents a method of dimension reduction for factor modeling and it extracts the maximum information from the data while filtering out some insignificant variables. The covariance matrix is a matrix whose element is the each component of the variables and its diagonal is filled with the variance of each variable while the remaining positions are filled with the covariances for mutual variables. The eigenvector of the covariance matrix represents the right direction of the most information of the data and the eigenvalue represents the importance of the direction of the data. For instance, the bankruptcy probability of a company can be explained by many factors. However, some potential factors such as high rate of debts, the relationship with clients, all might explain the maximum information of why the company goes to bankruptcy. The debt rate is positively related to the bankruptcy probability but the relationship with clients is inversely related to that. And the amount of the impact can be reflected by the eigenvalues. 
+
+```{r}
+# Import data set which contains the 10 selected bonds with cleaning close prices
+clean_data <- read_excel("data1_clean.xlsx")
+clean_data = data.frame(clean_data)
+# Import data set which contains the 10 selected bonds with dirty  prices
+dirty_data <- read_excel("data1_dirty.xlsx")
+dirty_data = data.frame(dirty_data)
+# Construct an empty data frame for storing yields 
+Yields_set<- data.frame(matrix(nrow = 11, ncol=10))
+# Construct an empty data frame for storing spot rates 
+Spots_set <- data.frame(matrix(nrow = 11, ncol=10))
+# Construct an empty data frame for storing forward rates
+forward_set <- data.frame(matrix(nrow=4,ncol = 10))
+# Define a set of date
+Date = c("2022-01-10","2022-01-11","2022-01-12","2022-01-13","2022-01-14",
+          "2022-01-17","2022-01-18","2022-01-19","2022-01-20","2022-01-21")
+# Define a for loop to rename the columns of each data frame
+for (i in 1:10){
+  names(Yields_set)[i] = str_c(Date[i]," Yields")
+  names(Spots_set)[i] = str_c(Date[i]," Spots rates")
+  names(forward_set)[i] = str_c(Date[i]," Forward rates")
+}
+# Convert the column type to character
+names(clean_data)[9] =as.character('Maturity_Date')
+
+# Convert the column type to character
+names(dirty_data)[9] =as.character('Maturity_Date')
+
+dirty_data$Maturity_Date = gsub(dirty_data$Maturity_Date, pattern = 'UTC',replacement = "",fixed = T)
+```
+
+
+```{r}
+##Q4a)
+# Calculate Yield to maturity
+# Define a for loop to store yields into each cell continuously
+for (j in 1:11){
+  for (k in 1:10){ 
+    Yields_set[j,k] = bond.yield(Date[k],clean_data[j,9],
+              clean_data[j,4],freq=2,clean_data[j,k+9],comp.freq = 2,
+              redemption_value = 100)
+  }
+}
+```
+
+Q4a) \textbf{This is the plot of all the yield curves:}
+```{r,fig.height=3, fig.width=5}
+# Yield Curve Plot
+interval = seq(0,60,6)
+plot(interval, Yields_set$`2022-01-10 Yields`,type='l',col='red',
+     xlab = 'Months Starting from January 2022', ylab = "Yield rates(ytm)",
+     ylim=c(0.0001,0.02),main = "All 5-Year Yield Curves")
+lines(interval,Yields_set$`2022-01-11 Yields`,col='yellow')
+lines(interval,Yields_set$`2022-01-12 Yields`,col='blue')
+lines(interval,Yields_set$`2022-01-13 Yields`,col='green')
+lines(interval,Yields_set$`2022-01-14 Yields`,col='gray')
+lines(interval,Yields_set$`2022-01-17 Yields`,col='purple')
+lines(interval,Yields_set$`2022-01-18 Yields`,col='gold')
+lines(interval,Yields_set$`2022-01-19 Yields`,col='brown')
+lines(interval,Yields_set$`2022-01-20 Yields`,col='cyan')
+lines(interval,Yields_set$`2022-01-21 Yields`,col='orange')
+legend("bottomright", Date, lty=c(1,1),lwd=c(2,2), cex=0.3,pch=12, bty="n",
+       col=c("red","yellow", "blue","green", "gray","purple","gold","brown",
+             "cyan","orange"))
+```
+I used the clean price to calculate the yield rates for each of the selected bonds since the bond.yield function can automatically add the accrued interest to the clean price. Then, I plot all of the yield rates using different colors in terms of their collected dates. Overall, it shows a steadily increasing trend.
+
+```{r}
+##Q4b)
+# Calculate the spot rates
+# the spot rate for the first six months
+for (i in 1:10){
+  coupon = dirty_data[1,4]*100
+  maturityInYears = dirty_data[1,7]
+  price = clean_data[1,i+9]
+  Spots_set[1,i] = 2*(((0.5*coupon+100)/price)^(1/(2*maturityInYears))-1)
+}
+```
+
+
+```{r,warning=FALSE}
+#Calculate spot rates for the remaining times
+last_pay_month <- c(4,1,4,1,4,1,4,1,4,1,4)
+mature_in_month <- c(2,6,14,17,26,29,38,41,50,53,62)
+mature_in_month_new <- c(1,5,13,16,25,28,37,40,49,52,61)
+
+# Start from the second bond
+for (i in 2:11){
+  for (j in 1:10){
+    pv_sum = 0
+    coupon = dirty_data$Coupon[i]*100
+    maturityInYears = dirty_data[i,7]
+    price = clean_data[i,j+9]
+    future_c_time =seq((6-last_pay_month[i]), 
+                      mature_in_month_new[i], by=6)/12
+    for (k in 1:length(future_c_time)){
+      pv_sum <- pv_sum + 0.5*coupon/(1+Spots_set[i-1,]/2)^(2*future_c_time[k])
+    }
+    price_after_sub <- price-pv_sum
+    Spots_set[i,j] <- 2*(((0.5*coupon+100)/price_after_sub)^(1/(2*maturityInYears))-1)
+    pv_sum = 0
+  }
+}
+```
+
+
+Q4b)\textbf{This is the plot of all the spot curves:}
+```{r,fig.height=3, fig.width=5}
+# Plot the Spots Curve
+interval = seq(0,5,0.5)
+plot(interval, Spots_set$`2022-01-10 Spots rates`,type='l',col='red',
+     xlab = 'Years Starting from January 2022',ylab = "Spot rates",lwd=1, cex=2, 
+     main = "All 5-year Spot Curves")
+lines(interval,Spots_set$`2022-01-11 Spots rates`,col='yellow')
+lines(interval,Spots_set$`2022-01-12 Spots rates`,col='blue')
+lines(interval,Spots_set$`2022-01-13 Spots rates`,col='green')
+lines(interval,Spots_set$`2022-01-14 Spots rates`,col='gray')
+lines(interval,Spots_set$`2022-01-17 Spots rates`,col='purple')
+lines(interval,Spots_set$`2022-01-18 Spots rates`,col='gold')
+lines(interval,Spots_set$`2022-01-19 Spots rates`,col='brown')
+lines(interval,Spots_set$`2022-01-20 Spots rates`,col='cyan')
+lines(interval,Spots_set$`2022-01-21 Spots rates`,col='orange')
+legend("topright", Date, lty=c(1,1),lwd=c(2,2), pch=15,cex=0.5, bty="n",
+       col=c("red","yellow", "blue","green", "gray","purple","gold","brown","cyan","orange"))
+```
+I used the formula of spot rate "$2((\frac{0.5*Coupon+FV}{Price})^{\frac{1}{2Ttm}}-1)$ (Team, 2022) to calculate each spot rates ranging from 1-5 years from the bonds since the coupon payment happens twice a year. Then, I plot all of the spot rates using different colors in terms of their collected dates. Overall, the spot rates rise swiftly at the beginning of 2022 which may be triggered by the news that Canadian Fed planned to increase the fund rates. Then, the spot trend begins to be stable.  
+
+```{r}
+# Calculate the forward rate
+for (i in seq(2,8,2)){
+  for (j in c(1:10)){
+    one_year_forward <- (1+Spots_set[i+2,j]/2)^(i+2)
+    nth_yr_forward <- (1+Spots_set[i,j]/2)^(2*i/2)
+    forward_set[i/2,j] <- 2*((one_year_forward/nth_yr_forward)^(1/2)-1)
+  }
+}
+```
+
+
+Q4c)\textbf{This is the plot of all the spot curves:}
+```{r,fig.height=3, fig.width=5}
+# Plot the Spots Curve
+interval = seq(1,4,1)
+plot(interval, forward_set$`2022-01-10 Forward rates`,type='l',col='red',
+     xlab = 'Years from 2022',ylab = "Forward rates",lwd=1,
+     main = "All 1-1, 1-2, 1-3, 1-4yr Forward Curves")
+lines(interval,forward_set$`2022-01-11 Forward rates`,col='yellow')
+lines(interval,forward_set$`2022-01-12 Forward rates`,col='blue')
+lines(interval,forward_set$`2022-01-13 Forward rates`,col='green')
+lines(interval,forward_set$`2022-01-14 Forward rates`,col='gray')
+lines(interval,forward_set$`2022-01-17 Forward rates`,col='purple')
+lines(interval,forward_set$`2022-01-18 Forward rates`,col='gold')
+lines(interval,forward_set$`2022-01-19 Forward rates`,col='brown')
+lines(interval,forward_set$`2022-01-20 Forward rates`,col='cyan')
+lines(interval,forward_set$`2022-01-21 Forward rates`,col='orange')
+legend("topleft", Date, lwd=2, cex=0.5,pch=15, bty="n",
+       col=c("red","yellow", "blue","green", "gray","purple","gold","brown","cyan","orange"))
+```
+I used the formula of forward rate $2[[\frac{(1+s_1)^a}{(1+s_2)^b}]^\frac{1}{a-b}-1]$ where a and b are the number of years until a further future date and number of years until a closer future date (Vaidya, 2022). Then, I plot all of the forward rates using different colors in terms of their collected dates. Overall, all curves superimposed on each other forms a linear and increasing trend before the first 2 years from 2022 and becomes stable after that time.  
+
+Q5
+\textbf{This is the covariance matrix for log-returns of yields:}
+```{r}
+#Q5
+# Build an empty covariance matrix for yields
+cov_matrix_ytm <- matrix(nrow = 9, ncol = 5)
+# Name the column of the covariance matrix for yields 
+colnames(cov_matrix_ytm) <- c("log_yield1","log_yield2","log_yield3",
+                             "log_yield4","log_yield5")
+# Name the row of the covariance matrix for yields
+rownames(cov_matrix_ytm) <-  seq(1,9,1)
+# Choose the bonds that matures in March. 
+seq <- as.vector(seq(1,9,2))
+for (i in c(1:5))
+  {
+  for (j in c(1:9))
+    {
+    #Calculate the covariance matrix for log-return of yields
+    cov_matrix_ytm[j,i]<- log(Yields_set[seq[i],j+1]/Yields_set[seq[i],j])
+  }
+}
+cov_matrix_ytm <- cov(cov_matrix_ytm)
+# Show the covariance matrix of log-yield.
+cov_matrix_ytm
+```
+
+
+\textbf{This is the covariance matrix for log-returns of forward rates :}
+```{r}
+#Q5_2
+# Build an empty covariance matrix for forward
+cov_matrix_fwd <- matrix(nrow = 9,ncol = 4)
+# Name the column of the covariance matrix for forward
+colnames(cov_matrix_fwd) <- c("log_fwd_1yr1yr","log_fwd_1yr2yr",
+                                 "log_fwd_1yr3yr","log_fwd_1yr4yr")
+# Name the row of the covariance matrix for forward
+rownames(cov_matrix_fwd) <-  seq(1,9,1)
+
+for (i in c(1:4))
+  {
+  for (j in c(1:9))
+    {
+    #Calculate the covariance matrix for log-return of forward rates
+    log_fwd <- log(forward_set[i, j+1]/forward_set[i, j])
+    # Store the corresponding log_fwd to the covariance matrix
+    cov_matrix_fwd[j, i] <- log_fwd
+  }
+}
+
+cov_matrix_fwd<- cov(cov_matrix_fwd)
+cov_matrix_fwd 
+```
+
+
+Q6 
+\textbf{These are the eigenvalues and eigenvectors of covariance matrix for
+log-returns of yield}
+```{r}
+#Q6.
+# Calculate the eigenvalue and eigenvector of covariance matrix for log yields
+eigen(cov_matrix_ytm)
+```
+The first eigenvalue is $0.01638157$, which implies most bonds' log-yields follow a weak correlation mode and its associated eigenvector is $[0.9621, 0.0534, 0.2611, 0.0390, 0.0431]$ which implies a positive mutual correlation of all selected bonds' log-yields.
+
+\textbf{These are the eigenvalues and eigenvectors of covariance matrix for
+log-returns of forward rates}
+```{r}
+# Calculate the eigenvalue and eigenvector of covariance matrix for log forwards
+eigen(cov_matrix_fwd)
+```
+The first eigenvalue is $0.0037$, which implies most bonds' forward rates also follow a weak correlation mode and its associated eigenvector is $[-0.0240, -0.6749, 0.5607, -0.4791]$, which implies a negative mutual correlation of all selected bonds' forward rates. 
+
+
+
+
+
+\newpage
+\textbf{Appendix}
+
+\textbf{Reference}
+
+Milstein, E., &amp; Wessel, D. (2021, December 17). What did the Fed do in response to the COVID-19 crisis? Brookings. Retrieved February 5, 2022, from https://www.brookings.edu/research/fed-response-to-covid19/ 
+
+Team, T. I. (2022, January 23). Yield to maturity – YTM vs. spot rate: What's the difference? Investopedia. Retrieved February 12, 2022, from https://www.investopedia.com/ask/answers/020215/what-difference-between-yield-maturity-and-spot-rate.asp 
+
+Vaidya, A. byM. T. R. byD. (2022, February 4). Forward rate formula. WallStreetMojo. Retrieved February 12, 2022, from https://www.wallstreetmojo.com/forward-rate-formula/ 
+
+Github Link: 
+https://github.com/jerry88886/apm466_A1/blob/main/APM466_A1_new.Rmd
+
+
